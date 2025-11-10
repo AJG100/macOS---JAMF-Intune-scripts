@@ -1,0 +1,63 @@
+#!/bin/bash
+# Remove PrivilegeManagement & PMCPackageManager from /Applications
+# Idempotent; safe to run multiple times.
+
+set -euo pipefail
+
+APPS=(
+  "/Applications/PrivilegeManagement.app"
+  "/Applications/PMCPackageManager.app"
+)
+
+log(){ echo "[remove-apps] $*"; }
+
+# Best-effort quit
+pkill -f "PrivilegeManagement" 2>/dev/null || true
+pkill -f "PMCPackageManager" 2>/dev/null || true
+osascript -e 'tell application "PrivilegeManagement" to quit' >/dev/null 2>&1 || true
+osascript -e 'tell application "PMCPackageManager" to quit' >/dev/null 2>&1 || true
+
+# Unload any matching launch agents/daemons (best-effort)
+for PLIST in /Library/LaunchDaemons/*.plist /Library/LaunchAgents/*.plist; do
+  [[ -e "$PLIST" ]] || continue
+  if grep -qiE 'privilege|pmc|package.?manager' "$PLIST"; then
+    log "Unloading: $PLIST"
+    launchctl bootout system "$PLIST" >/dev/null 2>&1 || true
+    launchctl bootout user/$(id -u 0) "$PLIST" >/dev/null 2>&1 || true
+  fi
+done
+
+# Remove app bundles
+for APP in "${APPS[@]}"; do
+  if [[ -d "$APP" ]]; then
+    log "Removing $APP"
+    rm -rf "$APP"
+  else
+    log "Not found: $APP"
+  fi
+done
+
+# Optional: clean typical support folders (best-effort; comment out if not desired)
+rm -rf "/Library/Application Support/PrivilegeManagement" 2>/dev/null || true
+rm -rf "/Library/Application Support/BeyondTrust/Privilege Management" 2>/dev/null || true
+rm -rf "/Library/Logs/PrivilegeManagement"* 2>/dev/null || true
+
+# Forget receipts if they exist (names vary by vendor/build)
+for PKG in $(pkgutil --pkgs | grep -iE 'privilege.*manage|pmc.*package|beyondtrust.*privilege' || true); do
+  log "Forgetting receipt: $PKG"
+  pkgutil --forget "$PKG" >/dev/null 2>&1 || true
+done
+
+# Verify removal
+missing=0
+for APP in "${APPS[@]}"; do
+  [[ -d "$APP" ]] && { log "Still present: $APP"; missing=1; }
+done
+
+if [[ $missing -eq 0 ]]; then
+  log "Removal complete."
+  exit 0
+else
+  log "Some items remain."
+  exit 1
+fi
