@@ -10,6 +10,7 @@
 #   * Resets Microsoft AutoUpdate (MAU)
 #   * Removes common Office identity keychain items
 #   * Logs to /var/log/outlook_migration_fix.log
+#   * By Ariel Juarez - 15/12/2025
 
 set -euo pipefail
 
