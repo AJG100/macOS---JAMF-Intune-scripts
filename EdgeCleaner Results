@@ -1,0 +1,39 @@
+2025-12-18 13:57:55 ==== EdgeUpdater Cache Cleanup START ====
+2025-12-18 13:57:55 BEFORE: version folders in msedge-stable:
+  - /Library/Application Support/Microsoft/EdgeUpdater/apps/msedge-stable/142.0.3595.94
+2025-12-18 13:57:55 Stopping EdgeUpdater processes (best effort)...
+2025-12-18 14:02:00 ==== EdgeUpdater Cache Cleanup START ====
+2025-12-18 14:02:00 BEFORE: version folders:
+  - /Library/Application Support/Microsoft/EdgeUpdater/apps/msedge-stable/142.0.3595.94
+2025-12-18 14:02:00 Stopping EdgeUpdater (best effort)...
+2025-12-18 14:02:03 Detected versions:
+  - 142.0.3595.94
+2025-12-18 14:02:52 ==== EdgeUpdater Cache Cleanup START ====
+2025-12-18 14:02:52 BEFORE: version folders:
+  - /Library/Application Support/Microsoft/EdgeUpdater/apps/msedge-stable/142.0.3595.94
+2025-12-18 14:02:52 Stopping EdgeUpdater (best effort)...
+2025-12-18 14:02:54 Detected versions:
+  - 142.0.3595.94
+2025-12-18 14:08:49 ==== EdgeUpdater Cache Cleanup START ====
+2025-12-18 14:08:49 BEFORE: version folders:
+  - /Library/Application Support/Microsoft/EdgeUpdater/apps/msedge-stable/142.0.3595.94
+2025-12-18 14:08:49 Stopping EdgeUpdater (best effort)...
+2025-12-18 14:08:51 Detected versions:
+  - 142.0.3595.94
+2025-12-18 14:09:57 ==== EdgeUpdater Cache Cleanup START ====
+2025-12-18 14:09:57 BEFORE (contents):
+total 0
+drwx---rwx  3 root  wheel   96 Nov 24 10:47 .
+drwx---rwx  6 root  wheel  192 Dec 18 13:05 ..
+drwx---rwx  9 root  wheel  288 Nov 24 10:47 142.0.3595.94
+2025-12-18 14:09:57 Stopping EdgeUpdater processes (best effort)...
+2025-12-18 14:09:59 Detected versions:
+  - 142.0.3595.94
+2025-12-18 14:09:59 Keeping latest: 142.0.3595.94
+2025-12-18 14:09:59 KEEP: 142.0.3595.94
+2025-12-18 14:09:59 AFTER (contents):
+total 0
+drwx---rwx  3 root  wheel   96 Nov 24 10:47 .
+drwx---rwx  6 root  wheel  192 Dec 18 13:05 ..
+drwx---rwx  9 root  wheel  288 Nov 24 10:47 142.0.3595.94
+2025-12-18 14:09:59 ==== EdgeUpdater Cache Cleanup END ====
