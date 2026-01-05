@@ -1,0 +1,15 @@
+#!/bin/bash
+
+APP_PATH="/Applications/Company Portal.app"
+
+if [ -d "$APP_PATH" ]; then
+    VERSION=$(/usr/bin/defaults read "$APP_PATH/Contents/Info.plist" CFBundleShortVersionString 2>/dev/null)
+    
+    if [ -n "$VERSION" ]; then
+        echo "<result>Installed (v$VERSION)</result>"
+    else
+        echo "<result>Installed (Version Unknown)</result>"
+    fi
+else
+    echo "<result>Not Installed</result>"
+fi
