@@ -1,0 +1,28 @@
+#!/bin/bash
+
+# Get the currently logged-in user (ignores loginwindow)
+currentUser=$(stat -f "%Su" /dev/console)
+
+# Safety check
+if [[ "$currentUser" == "root" || -z "$currentUser" ]]; then
+    echo "No valid logged-in user found. Exiting."
+    exit 1
+fi
+
+# Check if user is already an admin
+if dseditgroup -o checkmember -m "$currentUser" admin | grep -q "yes"; then
+    echo "User $currentUser is already an admin. No action needed."
+    exit 0
+fi
+
+# Promote user to admin
+dseditgroup -o edit -a "$currentUser" -t user admin
+
+# Verify result
+if dseditgroup -o checkmember -m "$currentUser" admin | grep -q "yes"; then
+    echo "User $currentUser has been successfully promoted to admin."
+    exit 0
+else
+    echo "Failed to promote $currentUser to admin."
+    exit 1
+fi
