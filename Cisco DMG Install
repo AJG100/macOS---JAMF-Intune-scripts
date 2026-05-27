@@ -1,0 +1,8 @@
+#!/bin/bash
+
+DMG="/path/to/CiscoSecureClient.dmg"
+MOUNT=$(hdiutil attach "$DMG" -nobrowse | awk '/Volumes/ {print $3}')
+
+installer -pkg "$MOUNT/Cisco Secure Client.pkg" -target /
+
+hdiutil detach "$MOUNT"
