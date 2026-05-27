@@ -1,0 +1,10 @@
+#!/bin/bash
+
+PYTHON_PATH="/usr/local/bin/python3"
+
+if [[ -x "$PYTHON_PATH" ]]; then
+    VERSION=$($PYTHON_PATH --version 2>&1 | awk '{print $2}')
+    echo "<result>$VERSION</result>"
+else
+    echo "<result>Not Installed</result>"
+fi
