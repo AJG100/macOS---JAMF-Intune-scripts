@@ -1,0 +1,186 @@
+#!/bin/bash
+##############################################################################
+# update_xcode_clt.sh
+# JAMF Pro Script – Silently update Xcode Command Line Tools
+# Remediation for CVE-2020-10735 (Python DoS via CLT bundled Python)
+#
+# Behavior:
+#   - Silently removes and reinstalls Xcode CLT in the background
+#   - Prompts the user to restart if a reboot is recommended
+#   - Logs all activity to /var/log/jamf_clt_update.log
+##############################################################################
+
+LOG_FILE="/var/log/jamf_clt_update.log"
+MIN_PYTHON_VERSION="3.9.14"   # CVE-2020-10735 fix threshold for 3.9.x
+DIALOG_TITLE="macOS Security Update"
+DIALOG_MESSAGE="A security update has been applied to your system. Please save your work and restart at your earliest convenience."
+
+##############################################################################
+# Logging
+##############################################################################
+log() {
+    echo "$(date '+%Y-%m-%d %H:%M:%S') | $1" | tee -a "$LOG_FILE"
+}
+
+##############################################################################
+# Helper – compare semantic versions
+# Returns 0 if $1 >= $2, 1 otherwise
+##############################################################################
+version_gte() {
+    [ "$(printf '%s\n' "$1" "$2" | sort -V | head -n1)" = "$2" ]
+}
+
+##############################################################################
+# Get the Python version bundled in CLT (if any)
+##############################################################################
+get_clt_python_version() {
+    local py_bin="/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/bin/python3"
+    if [ -x "$py_bin" ]; then
+        "$py_bin" --version 2>&1 | awk '{print $2}'
+    else
+        echo "not_found"
+    fi
+}
+
+##############################################################################
+# Check if CLT update is actually needed
+##############################################################################
+check_if_update_needed() {
+    local current_version
+    current_version=$(get_clt_python_version)
+
+    if [ "$current_version" = "not_found" ]; then
+        log "CLT Python not found at expected path – proceeding with reinstall."
+        return 0  # Update needed
+    fi
+
+    log "Detected CLT Python version: $current_version"
+
+    if version_gte "$current_version" "$MIN_PYTHON_VERSION"; then
+        log "CLT Python $current_version >= $MIN_PYTHON_VERSION. No update needed. Exiting."
+        exit 0
+    else
+        log "CLT Python $current_version < $MIN_PYTHON_VERSION. Update required."
+        return 0
+    fi
+}
+
+##############################################################################
+# Remove existing CLT
+##############################################################################
+remove_clt() {
+    log "Removing existing Xcode Command Line Tools..."
+    if [ -d "/Library/Developer/CommandLineTools" ]; then
+        rm -rf "/Library/Developer/CommandLineTools"
+        log "CLT directory removed."
+    else
+        log "CLT directory not found – skipping removal."
+    fi
+}
+
+##############################################################################
+# Install latest CLT via softwareupdate (silent, no GUI trigger)
+##############################################################################
+install_clt() {
+    log "Checking for available CLT update via softwareupdate..."
+
+    # Create the placeholder file that triggers CLT visibility in softwareupdate
+    touch /tmp/.com.apple.dt.CommandLineTools.installondemand.in-progress
+
+    # Find the latest CLT package label
+    local clt_label
+    clt_label=$(softwareupdate -l 2>&1 | grep -E "^\s+\*.*Command Line Tools" | tail -1 | sed 's/^.*\* //')
+
+    if [ -z "$clt_label" ]; then
+        log "ERROR: No CLT package found in softwareupdate. Cannot proceed."
+        rm -f /tmp/.com.apple.dt.CommandLineTools.installondemand.in-progress
+        exit 1
+    fi
+
+    log "Installing: $clt_label"
+    softwareupdate -i "$clt_label" --verbose >> "$LOG_FILE" 2>&1
+    local exit_code=$?
+
+    rm -f /tmp/.com.apple.dt.CommandLineTools.installondemand.in-progress
+
+    if [ $exit_code -ne 0 ]; then
+        log "ERROR: softwareupdate exited with code $exit_code."
+        exit 1
+    fi
+
+    log "CLT installation completed successfully."
+}
+
+##############################################################################
+# Verify the newly installed Python version
+##############################################################################
+verify_update() {
+    local new_version
+    new_version=$(get_clt_python_version)
+
+    if [ "$new_version" = "not_found" ]; then
+        log "WARNING: CLT Python not found after install. Manual review required."
+        return 1
+    fi
+
+    log "Post-install CLT Python version: $new_version"
+
+    if version_gte "$new_version" "$MIN_PYTHON_VERSION"; then
+        log "SUCCESS: CLT Python $new_version meets or exceeds minimum $MIN_PYTHON_VERSION."
+        return 0
+    else
+        log "WARNING: CLT Python $new_version still below $MIN_PYTHON_VERSION. Apple may not yet ship the fixed version."
+        return 1
+    fi
+}
+
+##############################################################################
+# Prompt logged-in user to restart (non-blocking)
+##############################################################################
+prompt_restart() {
+    local current_user
+    current_user=$(stat -f "%Su" /dev/console 2>/dev/null)
+
+    if [ -z "$current_user" ] || [ "$current_user" = "root" ]; then
+        log "No interactive user logged in. Skipping restart prompt."
+        return
+    fi
+
+    log "Prompting user '$current_user' to restart..."
+
+    # Use AppleScript via osascript to show a dialog to the console user
+    local user_uid
+    user_uid=$(id -u "$current_user")
+
+    launchctl asuser "$user_uid" sudo -u "$current_user" \
+        osascript -e "display dialog \"$DIALOG_MESSAGE\" with title \"$DIALOG_TITLE\" buttons {\"Restart Now\", \"Remind Me Later\"} default button \"Remind Me Later\" with icon caution" \
+        > /tmp/clt_dialog_result.txt 2>&1
+
+    local button_clicked
+    button_clicked=$(cat /tmp/clt_dialog_result.txt | grep "button returned" | awk -F':' '{print $2}' | xargs)
+
+    if [ "$button_clicked" = "Restart Now" ]; then
+        log "User chose 'Restart Now'. Initiating restart in 10 seconds..."
+        shutdown -r +1 "Security update restart initiated by IT." &
+    else
+        log "User deferred restart. They will restart at their convenience."
+    fi
+
+    rm -f /tmp/clt_dialog_result.txt
+}
+
+##############################################################################
+# Main
+##############################################################################
+log "=========================================="
+log "CLT Update Script started (CVE-2020-10735)"
+log "=========================================="
+
+check_if_update_needed
+remove_clt
+install_clt
+verify_update
+prompt_restart
+
+log "Script completed."
+exit 0
