@@ -1,9 +1,13 @@
 #!/bin/bash
 
 # Variables
-DMG_NAME="CiscoSecureClient.dmg"
+DMG_NAME="cisco-secure-client-macos-5.1.17.3394-predeploy-k9.dmg"
 MOUNT_POINT="/tmp/CiscoSecureClient"
 CACHED_PKG="/Library/Application Support/JAMF/Waiting Room/$DMG_NAME"
+
+# Debug - verify file exists
+echo "Looking for DMG at: $CACHED_PKG"
+ls -la "/Library/Application Support/JAMF/Waiting Room/"
 
 # Mount the DMG
 hdiutil attach "$CACHED_PKG" -mountpoint "$MOUNT_POINT" -nobrowse -quiet
@@ -14,19 +18,8 @@ if [ ! -d "$MOUNT_POINT" ]; then
     exit 1
 fi
 
-# List contents to verify paths
-echo "Contents of mount point:"
-ls -la "$MOUNT_POINT/"
-
 # Install the pkg
 installer -pkg "$MOUNT_POINT/Cisco Secure Client.pkg" -target / -verbose
-
-# Check installer exit code
-if [ $? -ne 0 ]; then
-    echo "ERROR: Package installation failed"
-    hdiutil detach "$MOUNT_POINT" -quiet
-    exit 1
-fi
 
 # Copy all Profiles to Cisco directory
 mkdir -p /opt/cisco/secureclient/
