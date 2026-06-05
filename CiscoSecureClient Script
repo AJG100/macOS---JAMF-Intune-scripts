@@ -1,0 +1,21 @@
+#!/bin/bash
+
+# Variables
+DMG_NAME="CiscoSecureClient.dmg"
+MOUNT_POINT="/tmp/CiscoSecureClient"
+CACHED_PKG="/Library/Application Support/JAMF/Waiting Room/$DMG_NAME"
+
+# Mount the DMG
+hdiutil attach "$CACHED_PKG" -mountpoint "$MOUNT_POINT" -nobrowse -quiet
+
+# Install the pkg
+installer -pkg "$MOUNT_POINT/Cisco Secure Client.pkg" -target /
+
+# Copy all Profiles to Cisco directory
+mkdir -p /opt/cisco/secureclient/
+cp -R "$MOUNT_POINT/Profiles/" /opt/cisco/secureclient/
+
+# Unmount the DMG
+hdiutil detach "$MOUNT_POINT" -quiet
+
+exit 0
