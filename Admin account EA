@@ -1,0 +1,9 @@
+#!/bin/bash
+
+admins=$(dscl . -read /Groups/admin GroupMembership 2>/dev/null | cut -d ":" -f2 | xargs)
+
+if [[ -z "$admins" ]]; then
+    echo "<result>No Admins</result>"
+else
+    echo "<result>$admins</result>"
+fi
