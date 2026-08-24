@@ -1,0 +1,262 @@
+#!/bin/bash
+####################################################################################
+# grant-temp-admin.sh
+#
+# PURPOSE
+#   Deploy as a Jamf Pro Self Service policy (Type: Script). When a standard user
+#   runs this from Self Service, it promotes the currently logged-in console user
+#   to local administrator for a fixed window (default 10 minutes), then
+#   automatically demotes them back to a standard user — even across a reboot,
+#   logout, or if Self Service itself is closed.
+#
+# HOW IT WORKS
+#   1. Identifies the console (logged-in) user. Refuses to run for root/loginwindow
+#      or if the user is already a permanent admin (so it never "demotes" someone
+#      who should stay an admin).
+#   2. Adds the user to the local `admin` group and records an expiration
+#      timestamp in a per-user state file.
+#   3. Writes a per-user revoke script + LaunchDaemon that runs at load time,
+#      sleeps for whatever time remains until expiration, then removes the user
+#      from `admin` and cleans up after itself.
+#   4. Because the LaunchDaemon lives in /Library/LaunchDaemons with RunAtLoad,
+#      launchd restarts it automatically on reboot — it re-reads the same
+#      expiration timestamp, so a reboot can't be used to extend access.
+#   5. Re-running Self Service while a grant is already active does NOT extend
+#      it or stack another timer — it just reports the remaining time.
+#
+# DEPLOYMENT (Jamf Pro)
+#   - Settings > Computer Management > Scripts > New. Paste this file's contents.
+#   - Priority: "After" (runs after other policy steps, doesn't matter much here).
+#   - Attach to a Policy scoped to the eligible Smart Group, execution frequency
+#     "Ongoing", trigger "Self Service" only (no recurring check-in trigger).
+#   - In the Policy's Self Service tab: give it a clear name/description
+#     ("Request 10 Minutes of Admin Access") and an icon; consider requiring
+#     the user to click through the Self Service description as an
+#     acknowledgment of an acceptable-use policy.
+#   - This script must run as root, which is how Jamf executes policy scripts
+#     by default — no special flag needed.
+#
+# CUSTOMIZE BEFORE DEPLOYING
+#   - LABEL_PREFIX: use your org's reverse-DNS identifier.
+#   - DURATION_SECONDS: grant length (default 600 = 10 minutes).
+#   - Notification block: swap in jamfHelper with your own icon path if desired.
+####################################################################################
+
+# ---- Configuration -----------------------------------------------------------
+LABEL_PREFIX="com.axos.tempadmin"                 # <-- change to your org's reverse-DNS prefix
+DURATION_SECONDS=600                              # 10 minutes
+STATE_DIR="/Library/Application Support/TempAdmin"
+LAUNCHD_DIR="/Library/LaunchDaemons"
+LOG_FILE="/var/log/tempadmin.log"
+JAMF_HELPER="/Library/Application Support/JAMF/bin/jamfHelper.app/Contents/MacOS/jamfHelper"
+
+# ---- Helpers -------------------------------------------------------------------
+log() {
+    local ts
+    ts="$(date '+%Y-%m-%d %H:%M:%S')"
+    echo "${ts} [grant-temp-admin] $*" | tee -a "$LOG_FILE"
+}
+
+notify() {
+    # $1 = title, $2 = message
+    local title="$1" message="$2"
+    if [[ -x "$JAMF_HELPER" ]]; then
+        launchctl asuser "$CONSOLE_UID" sudo -u "$CONSOLE_USER" \
+            "$JAMF_HELPER" -windowType utility -title "$title" -description "$message" \
+            -icon "/System/Library/CoreServices/CoreTypes.bundle/Contents/Resources/ToolbarAdvanced.icns" \
+            -button1 "OK" -defaultButton 1 -timeout 15 >/dev/null 2>&1 &
+    else
+        launchctl asuser "$CONSOLE_UID" sudo -u "$CONSOLE_USER" \
+            osascript -e "display notification \"${message}\" with title \"${title}\"" >/dev/null 2>&1
+    fi
+}
+
+# ---- Preconditions ---------------------------------------------------------
+if [[ "$(id -u)" -ne 0 ]]; then
+    echo "This script must be run as root (Jamf runs policy scripts as root by default)." >&2
+    exit 1
+fi
+
+CONSOLE_USER="$(stat -f%Su /dev/console)"
+CONSOLE_UID="$(id -u "$CONSOLE_USER" 2>/dev/null)"
+
+if [[ -z "$CONSOLE_USER" || "$CONSOLE_USER" == "root" || "$CONSOLE_USER" == "loginwindow" ]]; then
+    log "ERROR: No valid console user logged in (got '$CONSOLE_USER'). Aborting."
+    exit 1
+fi
+
+mkdir -p "$STATE_DIR"
+STATE_FILE="${STATE_DIR}/${CONSOLE_USER}.state"
+REVOKE_SCRIPT="${STATE_DIR}/revoke-${CONSOLE_USER}.sh"
+DAEMON_LABEL="${LABEL_PREFIX}.revoke.${CONSOLE_USER}"
+DAEMON_PLIST="${LAUNCHD_DIR}/${DAEMON_LABEL}.plist"
+
+# Was this user already an admin before we touched anything (i.e. a permanent
+# admin, not one of our temp grants)? Never manage/demote that account.
+IS_ALREADY_ADMIN=false
+if dseditgroup -o checkmember -m "$CONSOLE_USER" admin >/dev/null 2>&1; then
+    IS_ALREADY_ADMIN=true
+fi
+
+if $IS_ALREADY_ADMIN && [[ ! -f "$STATE_FILE" ]]; then
+    log "INFO: '$CONSOLE_USER' is already a permanent administrator. No action taken."
+    notify "Admin Access" "You already have administrator access on this Mac."
+    exit 0
+fi
+
+# Already has an active temp grant? Report remaining time instead of stacking
+# a second timer / LaunchDaemon.
+if [[ -f "$STATE_FILE" ]]; then
+    EXPIRES_EPOCH="$(awk -F= '/^expires_epoch/{print $2}' "$STATE_FILE")"
+    NOW_EPOCH="$(date +%s)"
+    if [[ -n "$EXPIRES_EPOCH" ]] && (( NOW_EPOCH < EXPIRES_EPOCH )); then
+        REMAINING=$(( (EXPIRES_EPOCH - NOW_EPOCH + 59) / 60 ))
+        log "INFO: '$CONSOLE_USER' already has an active temp-admin grant (~${REMAINING} min remaining)."
+        notify "Admin Access Already Active" "You already have temporary admin access, expiring in about ${REMAINING} minute(s)."
+        exit 0
+    else
+        log "INFO: Stale state file found for '$CONSOLE_USER' with no active grant; cleaning up before re-granting."
+        rm -f "$STATE_FILE"
+    fi
+fi
+
+# ---- Grant admin ------------------------------------------------------------
+NOW_EPOCH="$(date +%s)"
+EXPIRES_EPOCH=$(( NOW_EPOCH + DURATION_SECONDS ))
+EXPIRES_HUMAN="$(date -r "$EXPIRES_EPOCH" '+%-I:%M %p')"
+
+if dseditgroup -o edit -a "$CONSOLE_USER" -t user admin; then
+    log "GRANTED: '$CONSOLE_USER' added to admin group. Expires at epoch ${EXPIRES_EPOCH} (${EXPIRES_HUMAN})."
+else
+    log "ERROR: Failed to add '$CONSOLE_USER' to admin group."
+    notify "Admin Access Failed" "Something went wrong granting admin access. Please contact IT."
+    exit 1
+fi
+
+cat > "$STATE_FILE" <<EOF
+username=${CONSOLE_USER}
+granted_epoch=${NOW_EPOCH}
+expires_epoch=${EXPIRES_EPOCH}
+EOF
+chmod 600 "$STATE_FILE"
+
+# ---- Write the per-user revoke script --------------------------------------
+cat > "$REVOKE_SCRIPT" <<'REVOKE_EOF'
+#!/bin/bash
+# Auto-generated by grant-temp-admin.sh — revokes temporary admin access for
+# one specific user once their grant window has elapsed, then removes itself.
+
+STATE_FILE="__STATE_FILE__"
+DAEMON_LABEL="__DAEMON_LABEL__"
+DAEMON_PLIST="__DAEMON_PLIST__"
+LOG_FILE="/var/log/tempadmin.log"
+JAMF_HELPER="/Library/Application Support/JAMF/bin/jamfHelper.app/Contents/MacOS/jamfHelper"
+
+log() {
+    local ts
+    ts="$(date '+%Y-%m-%d %H:%M:%S')"
+    echo "${ts} [revoke-temp-admin] $*" | tee -a "$LOG_FILE"
+}
+
+if [[ ! -f "$STATE_FILE" ]]; then
+    log "No state file found (already revoked/cleaned up). Exiting."
+    exit 0
+fi
+
+USERNAME="$(awk -F= '/^username/{print $2}' "$STATE_FILE")"
+EXPIRES_EPOCH="$(awk -F= '/^expires_epoch/{print $2}' "$STATE_FILE")"
+
+if [[ -z "$USERNAME" || -z "$EXPIRES_EPOCH" ]]; then
+    log "State file malformed. Removing and exiting."
+    rm -f "$STATE_FILE"
+    exit 1
+fi
+
+NOW_EPOCH="$(date +%s)"
+REMAINING=$(( EXPIRES_EPOCH - NOW_EPOCH ))
+if (( REMAINING > 0 )); then
+    log "Sleeping ${REMAINING}s until '${USERNAME}' grant expires (handles reboot resume)."
+    sleep "$REMAINING"
+fi
+
+if dseditgroup -o checkmember -m "$USERNAME" admin >/dev/null 2>&1; then
+    if dseditgroup -o edit -d "$USERNAME" -t user admin; then
+        log "REVOKED: '${USERNAME}' removed from admin group."
+    else
+        log "ERROR: Failed to remove '${USERNAME}' from admin group."
+    fi
+else
+    log "INFO: '${USERNAME}' was no longer an admin member at revoke time."
+fi
+
+CONSOLE_USER="$(stat -f%Su /dev/console 2>/dev/null)"
+if [[ "$CONSOLE_USER" == "$USERNAME" ]]; then
+    CONSOLE_UID="$(id -u "$CONSOLE_USER" 2>/dev/null)"
+    if [[ -x "$JAMF_HELPER" ]]; then
+        launchctl asuser "$CONSOLE_UID" sudo -u "$CONSOLE_USER" \
+            "$JAMF_HELPER" -windowType utility -title "Admin Access Expired" \
+            -description "Your temporary administrator access has ended." \
+            -button1 "OK" -defaultButton 1 -timeout 15 >/dev/null 2>&1 &
+    else
+        launchctl asuser "$CONSOLE_UID" sudo -u "$CONSOLE_USER" \
+            osascript -e 'display notification "Your temporary administrator access has ended." with title "Admin Access Expired"' >/dev/null 2>&1
+    fi
+fi
+
+# Clean up: state file, this script, and unload/remove the LaunchDaemon.
+rm -f "$STATE_FILE"
+launchctl bootout "system/${DAEMON_LABEL}" >/dev/null 2>&1
+launchctl remove "$DAEMON_LABEL" >/dev/null 2>&1
+rm -f "$DAEMON_PLIST"
+rm -f "$0"
+exit 0
+REVOKE_EOF
+
+# Substitute per-user paths into the revoke script template.
+sed -i '' \
+    -e "s#__STATE_FILE__#${STATE_FILE}#g" \
+    -e "s#__DAEMON_LABEL__#${DAEMON_LABEL}#g" \
+    -e "s#__DAEMON_PLIST__#${DAEMON_PLIST}#g" \
+    "$REVOKE_SCRIPT"
+chmod 700 "$REVOKE_SCRIPT"
+chown root:wheel "$REVOKE_SCRIPT"
+
+# ---- Write and load the LaunchDaemon ---------------------------------------
+cat > "$DAEMON_PLIST" <<EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>${DAEMON_LABEL}</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>${REVOKE_SCRIPT}</string>
+    </array>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <false/>
+    <key>StandardOutPath</key>
+    <string>/var/log/tempadmin.log</string>
+    <key>StandardErrorPath</key>
+    <string>/var/log/tempadmin.log</string>
+</dict>
+</plist>
+EOF
+chmod 644 "$DAEMON_PLIST"
+chown root:wheel "$DAEMON_PLIST"
+
+# Load it (bootstrap syntax for modern macOS, falling back to legacy load).
+if launchctl bootstrap system "$DAEMON_PLIST" 2>/dev/null; then
+    launchctl enable "system/${DAEMON_LABEL}" >/dev/null 2>&1
+else
+    launchctl unload "$DAEMON_PLIST" >/dev/null 2>&1
+    launchctl load -w "$DAEMON_PLIST"
+fi
+
+log "Scheduled auto-revoke for '${CONSOLE_USER}' via LaunchDaemon '${DAEMON_LABEL}'."
+notify "Admin Access Granted" "You have administrator access for the next 10 minutes (until ${EXPIRES_HUMAN})."
+
+exit 0
