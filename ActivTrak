@@ -1,0 +1,16 @@
+sudo find /Library/LaunchAgents \
+          /Library/LaunchDaemons \
+          /Library/PrivilegedHelperTools \
+          -iname "*activtrak*" \
+          -o -iname "scthost*" \
+          -o -iname "svctc*" 2>/dev/null
+
+
+sudo launchctl list | grep -Ei 'activtrak|bgrove|scthost|svctcom'
+
+sudo ls -la /Library/LaunchAgents/com.bgrove.activtrak.agent.plist \
+/Library/LaunchDaemons/com.bgrove.activtrak.daemon.plist \
+/Library/PrivilegedHelperTools/scthostp \
+/Library/PrivilegedHelperTools/scthostu \
+/Library/PrivilegedHelperTools/svctcom \
+/Library/PrivilegedHelperTools/scthost.app 2>/dev/null
