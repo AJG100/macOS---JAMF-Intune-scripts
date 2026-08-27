@@ -54,3 +54,48 @@ sudo find /Library/LaunchAgents /Library/LaunchDaemons \
 sudo plutil -p /Library/LaunchAgents/com.bgrove.activtrak.agent.plist
 sudo plutil -p /Library/LaunchDaemons/com.bgrove.activtrak.daemon.plist
 sudo plutil -p /Library/LaunchDaemons/com.bgrove.agent.crashreporter.plist
+
+arieljuarez@192 ~ % sudo plutil -p /Library/LaunchAgents/com.bgrove.activtrak.agent.plist
+{
+  "KeepAlive" => true
+  "Label" => "com.bgrove.scthostp"
+  "LimitLoadToSessionType" => "Aqua"
+  "ProgramArguments" => [
+    0 => "/Library/PrivilegedHelperTools/scthostp"
+  ]
+  "RunAtLoad" => true
+}
+arieljuarez@192 ~ % sudo plutil -p /Library/LaunchDaemons/com.bgrove.activtrak.daemon.plist
+{
+  "KeepAlive" => true
+  "Label" => "com.bgrove.svctcom"
+  "MachServices" => {
+    "0731BB98-8B9A-4F9D-9387-547112959D01" => true
+  }
+  "ProgramArguments" => [
+    0 => "/Library/PrivilegedHelperTools/svctcom"
+  ]
+  "RunAtLoad" => true
+  "SessionCreate" => true
+  "StandardErrorPath" => "/Library/PrivilegedHelperTools/svctcom-std.log"
+  "StandardOutPath" => "/Library/PrivilegedHelperTools/svctcom-std.log"
+}
+arieljuarez@192 ~ % sudo plutil -p /Library/LaunchDaemons/com.bgrove.agent.crashreporter.plist
+{
+  "EnablePressuredExit" => true
+  "ExitTimeOut" => 10
+  "Label" => "com.bgrove.agent.crashreporter"
+  "MachServices" => {
+    "com.bgrove.agent.crashHandler" => true
+  }
+  "ProcessType" => "Background"
+  "Program" => "/Library/PrivilegedHelperTools/svctcr"
+  "ProgramArguments" => [
+    0 => "/Library/PrivilegedHelperTools/svctcr"
+  ]
+  "StandardErrorPath" => "/Library/PrivilegedHelperTools/svctcr.log"
+  "StandardOutPath" => "/Library/PrivilegedHelperTools/svctcr.log"
+  "ThrottleInterval" => 600
+}
+arieljuarez@192 ~ % 
+
