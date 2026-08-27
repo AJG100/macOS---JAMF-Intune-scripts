@@ -111,3 +111,10 @@ sudo find /Library/PrivilegedHelperTools \
 /Library/LaunchDaemons \
 \( -iname "*activtrak*" -o -iname "*bgrove*" -o -iname "*scthost*" \) \
 -print 2>/dev/null
+
+
+find /Library/PrivilegedHelperTools \
+     /Library/PrivilegeHelperTools \
+     -maxdepth 2 \
+     \( -iname "*scthost*" -o -iname "*svct*" -o -iname "*bgrove*" -o -iname "*activtrak*" \) \
+     -print 2>/dev/null
