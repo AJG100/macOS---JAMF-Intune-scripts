@@ -50,3 +50,7 @@ sudo find /Library/LaunchAgents /Library/LaunchDaemons \
 /Library/LaunchAgents/com.bgrove.activtrak.agent.plist
 /Library/LaunchDaemons/com.bgrove.agent.crashreporter.plist
 /Library/LaunchDaemons/com.bgrove.activtrak.daemon.plist
+
+sudo plutil -p /Library/LaunchAgents/com.bgrove.activtrak.agent.plist
+sudo plutil -p /Library/LaunchDaemons/com.bgrove.activtrak.daemon.plist
+sudo plutil -p /Library/LaunchDaemons/com.bgrove.agent.crashreporter.plist
