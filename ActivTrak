@@ -118,3 +118,7 @@ find /Library/PrivilegedHelperTools \
      -maxdepth 2 \
      \( -iname "*scthost*" -o -iname "*svct*" -o -iname "*bgrove*" -o -iname "*activtrak*" \) \
      -print 2>/dev/null
+
+/Library/PrivilegedHelperTools/svctcom.log
+/Library/PrivilegedHelperTools/svctcr.db
+/Library/PrivilegedHelperTools/libscthostp_lib.dylib
