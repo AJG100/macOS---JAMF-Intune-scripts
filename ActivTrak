@@ -46,3 +46,7 @@ sudo find / -xdev \( -name "scthost" -o -name "scthostp" -o -name "scthostu" -o 
 
 sudo find /Library/LaunchAgents /Library/LaunchDaemons \
   -type f -print 2>/dev/null | grep -Ei 'sct|activ|grove'
+
+/Library/LaunchAgents/com.bgrove.activtrak.agent.plist
+/Library/LaunchDaemons/com.bgrove.agent.crashreporter.plist
+/Library/LaunchDaemons/com.bgrove.activtrak.daemon.plist
