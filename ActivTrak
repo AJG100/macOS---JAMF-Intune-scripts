@@ -18,3 +18,6 @@ sudo ls -la /Library/LaunchAgents/com.bgrove.activtrak.agent.plist \
 
 /System/Volumes/Data/Users/arieljuarez/Library/Application Support/Google/Chrome/Default/IndexedDB/https_activtrak.app.box.com_0.indexeddb.leveldb
 /Users/arieljuarez/Library/Application Support/Google/Chrome/Default/IndexedDB/https_activtrak.app.box.com_0.indexeddb.leveldb
+
+
+sudo find / -xdev \( -name "scthost" -o -name "scthostp" -o -name "scthostu" -o -name "svctcom" -o -name "svctcr" \) 2>/dev/null
