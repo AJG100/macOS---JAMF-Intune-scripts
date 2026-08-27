@@ -96,6 +96,18 @@ arieljuarez@192 ~ % sudo plutil -p /Library/LaunchDaemons/com.bgrove.agent.crash
   "StandardErrorPath" => "/Library/PrivilegedHelperTools/svctcr.log"
   "StandardOutPath" => "/Library/PrivilegedHelperTools/svctcr.log"
   "ThrottleInterval" => 600
+
+sudo find /Library/PrivilegedHelperTools \
+/Library/LaunchAgents \
+/Library/LaunchDaemons \
+\( -iname "*activtrak*" -o -iname "*bgrove*" -o -iname "*scthost*" \) \
+-print 2>/dev/null
 }
 arieljuarez@192 ~ % 
 
+
+sudo find /Library/PrivilegedHelperTools \
+/Library/LaunchAgents \
+/Library/LaunchDaemons \
+\( -iname "*activtrak*" -o -iname "*bgrove*" -o -iname "*scthost*" \) \
+-print 2>/dev/null
