@@ -21,3 +21,24 @@ sudo ls -la /Library/LaunchAgents/com.bgrove.activtrak.agent.plist \
 
 
 sudo find / -xdev \( -name "scthost" -o -name "scthostp" -o -name "scthostu" -o -name "svctcom" -o -name "svctcr" \) 2>/dev/null
+
+/Library/PrivilegedHelperTools/scthostu
+/Library/PrivilegedHelperTools/scthost.app/Contents/MacOS/scthost
+/Library/PrivilegedHelperTools/scthost.app/Contents/Resources/scthostu
+/Library/PrivilegedHelperTools/scthost.app/Contents/Resources/scthostp
+/Library/PrivilegedHelperTools/scthost.app/Contents/Resources/svctcr
+/Library/PrivilegedHelperTools/scthost.app/Contents/Resources/svctcom
+/Library/PrivilegedHelperTools/scthostp
+/Library/PrivilegedHelperTools/svctcr
+/Library/PrivilegedHelperTools/svctcom
+/System/Volumes/Data/Library/PrivilegedHelperTools/scthostu
+/System/Volumes/Data/Library/PrivilegedHelperTools/scthost.app/Contents/MacOS/scthost
+/System/Volumes/Data/Library/PrivilegedHelperTools/scthost.app/Contents/Resources/scthostu
+/System/Volumes/Data/Library/PrivilegedHelperTools/scthost.app/Contents/Resources/scthostp
+/System/Volumes/Data/Library/PrivilegedHelperTools/scthost.app/Contents/Resources/svctcr
+/System/Volumes/Data/Library/PrivilegedHelperTools/scthost.app/Contents/Resources/svctcom
+/System/Volumes/Data/Library/PrivilegedHelperTools/scthostp
+/System/Volumes/Data/Library/PrivilegedHelperTools/svctcr
+/System/Volumes/Data/Library/PrivilegedHelperTools/svctcom
+/System/Volumes/Data/Users/arieljuarez/Library/Application Support/scthost
+/Users/arieljuarez/Library/Application Support/scthost
