@@ -14,3 +14,7 @@ sudo ls -la /Library/LaunchAgents/com.bgrove.activtrak.agent.plist \
 /Library/PrivilegedHelperTools/scthostu \
 /Library/PrivilegedHelperTools/svctcom \
 /Library/PrivilegedHelperTools/scthost.app 2>/dev/null
+
+
+/System/Volumes/Data/Users/arieljuarez/Library/Application Support/Google/Chrome/Default/IndexedDB/https_activtrak.app.box.com_0.indexeddb.leveldb
+/Users/arieljuarez/Library/Application Support/Google/Chrome/Default/IndexedDB/https_activtrak.app.box.com_0.indexeddb.leveldb
