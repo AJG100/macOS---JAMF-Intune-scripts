@@ -42,3 +42,7 @@ sudo find / -xdev \( -name "scthost" -o -name "scthostp" -o -name "scthostu" -o 
 /System/Volumes/Data/Library/PrivilegedHelperTools/svctcom
 /System/Volumes/Data/Users/arieljuarez/Library/Application Support/scthost
 /Users/arieljuarez/Library/Application Support/scthost
+
+
+sudo find /Library/LaunchAgents /Library/LaunchDaemons \
+  -type f -print 2>/dev/null | grep -Ei 'sct|activ|grove'
