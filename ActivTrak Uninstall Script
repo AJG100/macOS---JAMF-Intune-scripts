@@ -1,10 +1,14 @@
+```bash
 #!/bin/bash
 #
 # ActivTrak Agent Uninstaller
 # macOS / JAMF Pro
 #
-# Removes ActivTrak agent services, privileged components,
-# logs, and per-user application support data.
+# Purpose:
+#   Completely remove the ActivTrak agent from macOS.
+#
+# Run as:
+#   root
 #
 
 PATH="/usr/bin:/bin:/usr/sbin:/sbin"
@@ -15,28 +19,38 @@ log() {
     echo "$(date '+%Y-%m-%d %H:%M:%S') - $1" | tee -a "$LOG"
 }
 
+log "=========================================="
 log "Starting ActivTrak removal"
+log "=========================================="
 
 # ------------------------------------------------------------
-# 1. Stop and unload ActivTrak services
+# 1. Determine the logged-in user
 # ------------------------------------------------------------
 
-log "Stopping ActivTrak services"
-
-launchctl bootout system/com.bgrove.svctcom 2>/dev/null || true
-launchctl bootout system/com.bgrove.agent.crashreporter 2>/dev/null || true
-
-# The agent runs in the logged-in user's Aqua session
 CONSOLE_USER=$(/usr/bin/stat -f '%Su' /dev/console)
 
 if [[ "$CONSOLE_USER" != "root" && -n "$CONSOLE_USER" ]]; then
     CONSOLE_UID=$(/usr/bin/id -u "$CONSOLE_USER")
+    USER_HOME=$(/usr/bin/dscl . -read "/Users/$CONSOLE_USER" NFSHomeDirectory 2>/dev/null | awk '{print $2}')
+fi
 
+# ------------------------------------------------------------
+# 2. Stop ActivTrak LaunchAgents / LaunchDaemons
+# ------------------------------------------------------------
+
+log "Stopping ActivTrak services"
+
+# System LaunchDaemons
+launchctl bootout system/com.bgrove.svctcom 2>/dev/null || true
+launchctl bootout system/com.bgrove.agent.crashreporter 2>/dev/null || true
+
+# User LaunchAgent
+if [[ -n "$CONSOLE_UID" ]]; then
     launchctl bootout "gui/${CONSOLE_UID}/com.bgrove.scthostp" 2>/dev/null || true
 fi
 
 # ------------------------------------------------------------
-# 2. Kill remaining ActivTrak processes
+# 3. Terminate remaining ActivTrak processes
 # ------------------------------------------------------------
 
 log "Terminating remaining ActivTrak processes"
@@ -47,10 +61,10 @@ pkill -9 -f "/Library/PrivilegedHelperTools/svctcr" 2>/dev/null || true
 pkill -9 -f "/Library/PrivilegedHelperTools/scthost.app" 2>/dev/null || true
 
 # ------------------------------------------------------------
-# 3. Remove LaunchAgents / LaunchDaemons
+# 4. Remove LaunchAgents / LaunchDaemons
 # ------------------------------------------------------------
 
-log "Removing LaunchAgent and LaunchDaemon files"
+log "Removing ActivTrak LaunchAgents and LaunchDaemons"
 
 rm -f \
     "/Library/LaunchAgents/com.bgrove.activtrak.agent.plist" \
@@ -58,7 +72,7 @@ rm -f \
     "/Library/LaunchDaemons/com.bgrove.agent.crashreporter.plist"
 
 # ------------------------------------------------------------
-# 4. Remove privileged helper components
+# 5. Remove ActivTrak privileged components
 # ------------------------------------------------------------
 
 log "Removing ActivTrak privileged components"
@@ -69,87 +83,64 @@ rm -rf \
     "/Library/PrivilegedHelperTools/scthostu" \
     "/Library/PrivilegedHelperTools/svctcr" \
     "/Library/PrivilegedHelperTools/svctcom" \
+    "/Library/PrivilegedHelperTools/svctcom.log" \
+    "/Library/PrivilegedHelperTools/svctcr.db" \
+    "/Library/PrivilegedHelperTools/libscthostp_lib.dylib" \
     "/Library/PrivilegedHelperTools/svctcom-std.log" \
     "/Library/PrivilegedHelperTools/svctcr.log"
 
 # ------------------------------------------------------------
-# 5. Remove per-user ActivTrak data
+# 6. Remove ActivTrak user data
 # ------------------------------------------------------------
 
-if [[ "$CONSOLE_USER" != "root" && -n "$CONSOLE_USER" ]]; then
+if [[ -n "$USER_HOME" && -d "$USER_HOME" ]]; then
 
-    USER_HOME=$(/usr/bin/dscl . -read "/Users/$CONSOLE_USER" NFSHomeDirectory 2>/dev/null | \
-        awk '{print $2}')
+    log "Removing ActivTrak user data for $CONSOLE_USER"
 
-    if [[ -n "$USER_HOME" && -d "$USER_HOME" ]]; then
-        log "Removing ActivTrak user data for $CONSOLE_USER"
-
-        rm -rf \
-            "$USER_HOME/Library/Application Support/scthost"
-    fi
+    rm -rf \
+        "$USER_HOME/Library/Application Support/scthost"
 fi
 
 # ------------------------------------------------------------
-# 6. Remove any remaining ActivTrak-related launch files
-# ------------------------------------------------------------
-
-log "Performing final LaunchAgent/Daemon cleanup"
-
-find /Library/LaunchAgents \
-     /Library/LaunchDaemons \
-     -maxdepth 1 \
-     -type f \
-     \( -iname "*activtrak*" -o -iname "*bgrove*" \) \
-     -delete 2>/dev/null || true
-
-# ------------------------------------------------------------
-# 7. Verification
+# 7. Verify removal
 # ------------------------------------------------------------
 
 log "Verifying ActivTrak removal"
 
 REMAINING=0
 
-if [[ -e "/Library/LaunchAgents/com.bgrove.activtrak.agent.plist" ]]; then
-    log "ERROR: ActivTrak LaunchAgent still exists"
-    REMAINING=1
-fi
+# Check LaunchAgents / LaunchDaemons
+for FILE in \
+    "/Library/LaunchAgents/com.bgrove.activtrak.agent.plist" \
+    "/Library/LaunchDaemons/com.bgrove.activtrak.daemon.plist" \
+    "/Library/LaunchDaemons/com.bgrove.agent.crashreporter.plist"
+do
+    if [[ -e "$FILE" ]]; then
+        log "ERROR: Remaining file: $FILE"
+        REMAINING=1
+    fi
+done
 
-if [[ -e "/Library/LaunchDaemons/com.bgrove.activtrak.daemon.plist" ]]; then
-    log "ERROR: ActivTrak daemon still exists"
-    REMAINING=1
-fi
+# Check privileged components
+for FILE in \
+    "/Library/PrivilegedHelperTools/scthost.app" \
+    "/Library/PrivilegedHelperTools/scthostp" \
+    "/Library/PrivilegedHelperTools/scthostu" \
+    "/Library/PrivilegedHelperTools/svctcr" \
+    "/Library/PrivilegedHelperTools/svctcom" \
+    "/Library/PrivilegedHelperTools/svctcom.log" \
+    "/Library/PrivilegedHelperTools/svctcr.db" \
+    "/Library/PrivilegedHelperTools/libscthostp_lib.dylib" \
+    "/Library/PrivilegedHelperTools/svctcom-std.log" \
+    "/Library/PrivilegedHelperTools/svctcr.log"
+do
+    if [[ -e "$FILE" ]]; then
+        log "ERROR: Remaining file: $FILE"
+        REMAINING=1
+    fi
+done
 
-if [[ -e "/Library/LaunchDaemons/com.bgrove.agent.crashreporter.plist" ]]; then
-    log "ERROR: ActivTrak crash reporter still exists"
-    REMAINING=1
-fi
-
-if [[ -e "/Library/PrivilegedHelperTools/scthost.app" ]]; then
-    log "ERROR: scthost.app still exists"
-    REMAINING=1
-fi
-
-if [[ -e "/Library/PrivilegedHelperTools/scthostp" ]]; then
-    log "ERROR: scthostp still exists"
-    REMAINING=1
-fi
-
-if [[ -e "/Library/PrivilegedHelperTools/scthostu" ]]; then
-    log "ERROR: scthostu still exists"
-    REMAINING=1
-fi
-
-if [[ -e "/Library/PrivilegedHelperTools/svctcom" ]]; then
-    log "ERROR: svctcom still exists"
-    REMAINING=1
-fi
-
-if [[ -e "/Library/PrivilegedHelperTools/svctcr" ]]; then
-    log "ERROR: svctcr still exists"
-    REMAINING=1
-fi
-
+# Check running processes
 if pgrep -f "scthost|svctcom|svctcr" >/dev/null 2>&1; then
     log "ERROR: ActivTrak process still running"
     REMAINING=1
@@ -166,3 +157,4 @@ else
     log "ActivTrak removal completed with errors"
     exit 1
 fi
+```
