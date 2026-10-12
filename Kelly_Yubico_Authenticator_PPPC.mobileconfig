@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>PayloadType</key>
+	<string>Configuration</string>
+	<key>PayloadVersion</key>
+	<integer>1</integer>
+	<key>PayloadIdentifier</key>
+	<string>com.kelly.yubico.pppc</string>
+	<key>PayloadUUID</key>
+	<string>41A2E698-8384-4D42-8617-D57AFF062034</string>
+	<key>PayloadDisplayName</key>
+	<string>Kelly - Yubico Authenticator - PPPC</string>
+	<key>PayloadDescription</key>
+	<string>Allows standard users to approve Input Monitoring and Screen Recording for Yubico Authenticator. Does not silently grant access.</string>
+	<key>PayloadOrganization</key>
+	<string>Kelly</string>
+	<key>PayloadScope</key>
+	<string>System</string>
+	<key>PayloadContent</key>
+	<array>
+		<dict>
+			<key>PayloadType</key>
+			<string>com.apple.TCC.configuration-profile-policy</string>
+			<key>PayloadVersion</key>
+			<integer>1</integer>
+			<key>PayloadIdentifier</key>
+			<string>com.kelly.yubico.pppc.tcc</string>
+			<key>PayloadUUID</key>
+			<string>9BB981AC-1934-4C4F-813E-8EC6AFCDCCED</string>
+			<key>PayloadEnabled</key>
+			<true/>
+			<key>PayloadDisplayName</key>
+			<string>Yubico Authenticator Privacy Permissions</string>
+			<key>Services</key>
+			<dict>
+				<key>ListenEvent</key>
+				<array>
+					<dict>
+						<key>Identifier</key>
+						<string>com.yubico.yubioath</string>
+						<key>IdentifierType</key>
+						<string>bundleID</string>
+						<key>CodeRequirement</key>
+						<string>identifier "com.yubico.yubioath" and anchor apple generic and certificate 1[field.1.2.840.113635.100.6.2.6] /* exists */ and certificate leaf[field.1.2.840.113635.100.6.1.13] /* exists */ and certificate leaf[subject.OU] = "LQA3CS5MM7"</string>
+						<key>Authorization</key>
+						<string>AllowStandardUserToSetSystemService</string>
+					</dict>
+				</array>
+				<key>ScreenCapture</key>
+				<array>
+					<dict>
+						<key>Identifier</key>
+						<string>com.yubico.yubioath</string>
+						<key>IdentifierType</key>
+						<string>bundleID</string>
+						<key>CodeRequirement</key>
+						<string>identifier "com.yubico.yubioath" and anchor apple generic and certificate 1[field.1.2.840.113635.100.6.2.6] /* exists */ and certificate leaf[field.1.2.840.113635.100.6.1.13] /* exists */ and certificate leaf[subject.OU] = "LQA3CS5MM7"</string>
+						<key>Authorization</key>
+						<string>AllowStandardUserToSetSystemService</string>
+					</dict>
+				</array>
+			</dict>
+		</dict>
+	</array>
+</dict>
+</plist>
